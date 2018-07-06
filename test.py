@@ -3,6 +3,7 @@ Minimal character-level Vanilla RNN model. Written by Andrej Karpathy (@karpathy
 BSD License
 """
 import os
+import random
 import numpy as np
 
 # data I/O
@@ -84,12 +85,19 @@ n, p = 0, 0
 mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
 mbh, mby = np.zeros_like(bh), np.zeros_like(by) # memory variables for Adagrad
 smooth_loss = -np.log(1.0/vocab_size)*seq_length # loss at iteration 0
+index = 0
 while True:
     try:
         # prepare inputs (we're sweeping from left to right in steps seq_length long)
         if p+seq_length+1 >= len(data) or n == 0:
-          hprev = np.zeros((hidden_size,1)) # reset RNN memory
-          p = 0 # go from start of data
+            hprev = np.zeros((hidden_size,1)) # reset RNN memory
+            if n == 0:
+                p = 0 # go from start of data
+            else:
+                index = index + 5
+                p = index % seq_length
+                print("==============================================================================================>>>")
+                print("index = {0}".format(str(index)))
         inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
         targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
 
@@ -103,13 +111,6 @@ while True:
         loss, dWxh, dWhh, dWhy, dbh, dby, hprev = lossFun(inputs, targets, hprev)
         smooth_loss = smooth_loss * 0.999 + loss * 0.001
         if n % 100 == 0: print('iter %d, loss: %f' % (n, smooth_loss)) # print progress
-        if n % 1000 == 0 and smooth_loss <= 20.00:
-            np.save('Wxh_' + str(n) + '_' + str(smooth_loss) + '.npy', Wxh)
-            np.save('Whh_' + str(n) + '_' + str(smooth_loss) + '.npy', Whh)
-            np.save('Why_' + str(n) + '_' + str(smooth_loss) + '.npy', Why)
-            np.save('bh_' + str(n) + '_' + str(smooth_loss) + '.npy', bh)
-            np.save('by_' + str(n) + '_' + str(smooth_loss) + '.npy', by)
-            np.save('hprev_' + str(n) + '_' + str(smooth_loss) + '.npy', hprev)
 
         # perform parameter update with Adagrad
         for param, dparam, mem in zip([Wxh, Whh, Why, bh, by],
@@ -121,11 +122,28 @@ while True:
         p += seq_length # move data pointer
         n += 1 # iteration counter
     except KeyboardInterrupt:
-        data_now = input("Input current data(25 digits):")
-        while(len(data_now) != 25):
-            data_now = input("Input current data(25 digits):")
-        list_now = list(data_now)
-        sample_ix = sample(hprev, list_now[0], 25)
-        txt = ''.join(ix_to_char[ix] for ix in sample_ix)
-        print('Predict Start:\n %s \nPredict End.' % (txt,))
-        os.system('pause')
+        action = input("Type \'save\' to save current weight matrices, "
+                       "or \'i\' to start another verify "
+                       "or \'Enter\' to continue:")
+        while action == 'i' or action == 'save':
+            if action == 'i':
+                data_now = input("Input current data(25 digits):")
+                while len(data_now) != 25:
+                    data_now = input("Input current data(25 digits):")
+                list_now = [char_to_ix[ch] for ch in data_now]
+                sample_ix = sample(hprev, list_now[0], 25)
+                txt = ''.join(ix_to_char[ix] for ix in sample_ix)
+                print('Predict Start:\n {0} {1} {2} {3} {4} \nPredict End.'.format(txt[0:5], txt[5:10], txt[10:15], txt[15:20], txt[20:25]))
+                print('n={0}, loss={1}'.format(str(n), str(smooth_loss)))
+            elif action == 'save':
+                print('Saving weight matrixes...')
+                np.save('Wxh_' + str(n) + '_' + str(smooth_loss) + '.npy', Wxh)
+                np.save('Whh_' + str(n) + '_' + str(smooth_loss) + '.npy', Whh)
+                np.save('Why_' + str(n) + '_' + str(smooth_loss) + '.npy', Why)
+                np.save('bh_' + str(n) + '_' + str(smooth_loss) + '.npy', bh)
+                np.save('by_' + str(n) + '_' + str(smooth_loss) + '.npy', by)
+                np.save('hprev_' + str(n) + '_' + str(smooth_loss) + '.npy', hprev)
+
+            action = input("Type \'save\' to save current weight matrices, "
+                               "or \'i\' to start another verify "
+                               "or \'Enter\' to continue:")
